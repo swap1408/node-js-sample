@@ -17,9 +17,8 @@ pipeline {
         stage('Clean Old Container') {
             steps {
                 sh '''
-                    # Stop and remove old container if exists
-                    docker ps -q --filter "ancestor=$IMAGE_NAME" | xargs -r docker stop
-                    docker ps -aq --filter "ancestor=$IMAGE_NAME" | xargs -r docker rm
+                    docker ps --filter "status=running" --format "{{.ID}} {{.Ports}}" | grep "0.0.0.0:3000" | awk '{print $1}' | xargs -r docker stop
+                    docker ps -a --filter "status=exited" --format "{{.ID}} {{.Ports}}" | grep "0.0.0.0:3000" | awk '{print $1}' | xargs -r docker rm
                 '''
             }
         }
