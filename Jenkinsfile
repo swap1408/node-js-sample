@@ -3,8 +3,8 @@ pipeline {
 
     environment {
         IMAGE_NAME = 'node-app'
-        CONTAINER_PORT = '3000'
-        HOST_PORT = '3000'
+        CONTAINER_PORT = '80'
+        HOST_PORT = '80'
     }
 
     stages {
