@@ -14,16 +14,19 @@ pipeline {
             }
         }
 
-        stage('Clean Old Containers') {
+        stage('Clean Old Containers & Images') {
             steps {
                 sh '''
-                    echo "🔍 Stopping any running containers using image: $IMAGE_NAME..."
+                    echo "🔍 Stopping containers running from image: $IMAGE_NAME"
                     docker ps -q --filter "ancestor=$IMAGE_NAME" | xargs -r docker stop
 
-                    echo "🧹 Removing all containers (running or exited) using image: $IMAGE_NAME..."
+                    echo "🧹 Removing all containers from image: $IMAGE_NAME"
                     docker ps -a -q --filter "ancestor=$IMAGE_NAME" | xargs -r docker rm
 
-                    echo "🔌 Freeing up port $HOST_PORT if still bound..."
+                    echo "🧼 Removing old images with same name"
+                    docker images "$IMAGE_NAME" --format "{{.ID}}" | xargs -r docker rmi -f || true
+
+                    echo "🔌 Freeing up port $HOST_PORT if still bound"
                     docker ps --format "{{.ID}}: {{.Ports}}" | grep ":$HOST_PORT" | cut -d: -f1 | xargs -r docker stop
                 '''
             }
@@ -44,10 +47,10 @@ pipeline {
 
     post {
         success {
-            echo '✅ Build and container deployed successfully!'
+            echo '✅ Build, cleanup, and deploy successful!'
         }
         failure {
-            echo '❌ Build failed. Please check logs and running containers.'
+            echo '❌ Build failed. Check console output for details.'
         }
     }
 }
