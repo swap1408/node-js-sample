@@ -1,5 +1,5 @@
 pipeline {
-    agent { label 'slave' }
+    agent { label 'agent-node' }
 
     environment {
         IMAGE_NAME = 'node-app'
