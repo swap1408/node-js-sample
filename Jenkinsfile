@@ -1,65 +1,54 @@
 pipeline {
     agent { label 'agent-node' }
 
+    parameters {
+        choice(name: 'BRANCH_NAME', choices: ['dev', 'qa', 'master'], description: 'Select the Git branch to build and deploy')
+    }
+
     environment {
-        IMAGE_NAME = 'node-app'
-        CONTAINER_PORT = '80'
+        IMAGE_NAME = "node-app:${params.BRANCH_NAME}"
+        CONTAINER_NAME = "node-app-${params.BRANCH_NAME}-container"
         HOST_PORT = '80'
+        CONTAINER_PORT = '80'
     }
 
     stages {
         stage('Checkout Code') {
             steps {
-                checkout scm
-            }
-        }
-
-        stage('Clean Old Containers & Images') {
-            steps {
-                sh '''
-                    echo "🔍 Stopping containers running from image: $IMAGE_NAME"
-                    docker ps -q --filter "ancestor=$IMAGE_NAME" | xargs -r docker stop
-
-                    echo "🧹 Removing containers using the image"
-                    docker ps -a -q --filter "ancestor=$IMAGE_NAME" | xargs -r docker rm
-
-                    echo "🧼 Removing old versions of the image"
-                    docker images "$IMAGE_NAME" --format "{{.ID}}" | xargs -r docker rmi -f || true
-
-                    echo "🧽 Removing dangling images"
-                    docker images -f "dangling=true" -q | xargs -r docker rmi -f || true
-
-                    echo "🔌 Freeing port $HOST_PORT if any container is still using it"
-                    docker ps --format '{{.ID}} {{.Ports}}' | grep ":$HOST_PORT" | cut -d' ' -f1 | xargs -r docker stop
-                '''
+                echo "📦 Checking out branch: ${params.BRANCH_NAME}"
+                git branch: "${params.BRANCH_NAME}", url: 'https://github.com/swap1408/node-js-sample.git'
             }
         }
 
         stage('Build Docker Image') {
             steps {
+                echo "🔧 Building Docker image: ${IMAGE_NAME}"
+                sh "docker build -t ${IMAGE_NAME} ."
+            }
+        }
+
+        stage('Clean Old Containers') {
+            steps {
+                echo "🧹 Cleaning up old containers: ${CONTAINER_NAME}"
                 sh '''
-                    echo "🛠️ Building Docker image: $IMAGE_NAME"
-                    docker build -t $IMAGE_NAME .
+                    docker stop ${CONTAINER_NAME} || true
+                    docker rm ${CONTAINER_NAME} || true
                 '''
             }
         }
 
         stage('Run Docker Container') {
             steps {
-                sh '''
-                    echo "🚀 Running container on port $HOST_PORT"
-                    docker run -d -p $HOST_PORT:$CONTAINER_PORT $IMAGE_NAME
-                '''
+                echo "🚀 Running container: ${CONTAINER_NAME}"
+                sh "docker run -d -p ${HOST_PORT}:${CONTAINER_PORT} --name ${CONTAINER_NAME} ${IMAGE_NAME}"
             }
         }
     }
 
     post {
-        failure {
-            echo "❌ Build failed!"
-        }
-        success {
-            echo "✅ Build and container deployment succeeded!"
+        always {
+            echo "✅ Cleaning workspace..."
+            cleanWs()
         }
     }
 }
