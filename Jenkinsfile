@@ -1,38 +1,50 @@
 pipeline {
-    agent { label 'agent-node' }
+    agent { label 'agent-node' } // Change to your Jenkins agent label
+
+    // 🔹 Define build parameters
+    parameters {
+        choice(name: 'BRANCH_NAME', choices: ['dev', 'qa', 'master'], description: 'Select the branch to deploy')
+    }
 
     environment {
         IMAGE_NAME = 'node-app'
+        CONTAINER_NAME = "node-app_${params.BRANCH_NAME}"
         CONTAINER_PORT = '80'
         HOST_PORT = '80'
     }
 
     stages {
 
-        // ---------- DEV ----------
-        stage('Deploy Dev') {
+        stage('Checkout Code') {
             steps {
-                script {
-                    deployBranch('dev')
-                }
+                echo "🔁 Checking out branch: ${params.BRANCH_NAME}"
+                sh """
+                    rm -rf *
+                    git clone --single-branch --branch ${params.BRANCH_NAME} https://github.com/swap1408/node-js-sample.git .
+                """
             }
         }
 
-        // ---------- QA ----------
-        stage('Deploy QA') {
+        stage('Build Docker Image') {
             steps {
-                script {
-                    deployBranch('qa')
-                }
+                echo "🔧 Building Docker image: ${IMAGE_NAME}:${params.BRANCH_NAME}"
+                sh "docker build -t ${IMAGE_NAME}:${params.BRANCH_NAME} ."
             }
         }
 
-        // ---------- MASTER ----------
-        stage('Deploy Master') {
+        stage('Clean Old Containers') {
             steps {
-                script {
-                    deployBranch('master')
-                }
+                echo "🧹 Removing existing container if any..."
+                sh "docker rm -f ${CONTAINER_NAME} || true"
+            }
+        }
+
+        stage('Run Docker Container') {
+            steps {
+                echo "🚀 Running container: ${CONTAINER_NAME}"
+                sh """
+                    docker run -d -p ${HOST_PORT}:${CONTAINER_PORT} --name ${CONTAINER_NAME} ${IMAGE_NAME}:${params.BRANCH_NAME}
+                """
             }
         }
     }
@@ -43,32 +55,4 @@ pipeline {
             cleanWs()
         }
     }
-}
-
-def deployBranch(branchName) {
-    echo "🚩 Deploying branch: ${branchName}"
-
-    // Define a unique container name per branch
-    def containerName = "node-app_${branchName}"
-
-    sh """
-        echo '📦 Checking out code from branch: ${branchName}'
-        rm -rf *
-        git clone --single-branch --branch ${branchName} https://github.com/swap1408/node-js-sample.git .
-    """
-
-    sh """
-        echo '🔧 Building Docker image for ${branchName}...'
-        docker build -t ${IMAGE_NAME}:${branchName} .
-    """
-
-    sh """
-        echo '🧹 Removing old container: ${containerName}'
-        docker rm -f ${containerName} || true
-    """
-
-    sh """
-        echo '🚀 Running container: ${containerName}'
-        docker run -d -p ${HOST_PORT}:${CONTAINER_PORT} --name ${containerName} ${IMAGE_NAME}:${branchName}
-    """
 }
