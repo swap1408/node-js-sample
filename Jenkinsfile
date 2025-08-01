@@ -1,15 +1,18 @@
 pipeline {
-    agent { label 'agent-node' }
+    agent any
 
     parameters {
-        choice(name: 'BRANCH_NAME', choices: ['dev', 'qa', 'master'], description: 'Select the Git branch to build and deploy')
+        choice(name: 'BRANCH_NAME', choices: ['dev', 'qa', 'main'], description: 'Select the branch to deploy')
     }
 
     environment {
         IMAGE_NAME = "node-app:${params.BRANCH_NAME}"
         CONTAINER_NAME = "node-app-${params.BRANCH_NAME}-container"
-        HOST_PORT = '80'
         CONTAINER_PORT = '80'
+
+        HOST_PORT = "${params.BRANCH_NAME}" == 'dev'  ? '8081' :
+                    "${params.BRANCH_NAME}" == 'qa'   ? '8082' :
+                    "${params.BRANCH_NAME}" == 'main' ? '8083' : '8080'
     }
 
     stages {
@@ -29,18 +32,20 @@ pipeline {
 
         stage('Clean Old Containers') {
             steps {
-                echo "🧹 Cleaning up old containers: ${CONTAINER_NAME}"
-                sh '''
+                echo "🧹 Cleaning up old container: ${CONTAINER_NAME}"
+                sh """
                     docker stop ${CONTAINER_NAME} || true
                     docker rm ${CONTAINER_NAME} || true
-                '''
+                """
             }
         }
 
         stage('Run Docker Container') {
             steps {
-                echo "🚀 Running container: ${CONTAINER_NAME}"
-                sh "docker run -d -p ${HOST_PORT}:${CONTAINER_PORT} --name ${CONTAINER_NAME} ${IMAGE_NAME}"
+                echo "🚀 Running container: ${CONTAINER_NAME} on port ${HOST_PORT}"
+                sh """
+                    docker run -d -p ${HOST_PORT}:${CONTAINER_PORT} --name ${CONTAINER_NAME} ${IMAGE_NAME}
+                """
             }
         }
     }
