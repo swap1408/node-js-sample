@@ -10,7 +10,6 @@ pipeline {
         CONTAINER_NAME = "node-app-${params.BRANCH_NAME}-container"
         CONTAINER_PORT = '80'
 
-        // Unique HOST_PORT for each branch
         HOST_PORT = "${params.BRANCH_NAME}" == 'dev'  ? '8081' :
                     "${params.BRANCH_NAME}" == 'qa'   ? '8082' :
                     "${params.BRANCH_NAME}" == 'main' ? '8083' : '8090'
