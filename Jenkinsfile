@@ -10,9 +10,10 @@ pipeline {
         CONTAINER_NAME = "node-app-${params.BRANCH_NAME}-container"
         CONTAINER_PORT = '80'
 
+        // Unique HOST_PORT for each branch
         HOST_PORT = "${params.BRANCH_NAME}" == 'dev'  ? '8081' :
                     "${params.BRANCH_NAME}" == 'qa'   ? '8082' :
-                    "${params.BRANCH_NAME}" == 'main' ? '8083' : '8080'
+                    "${params.BRANCH_NAME}" == 'main' ? '8083' : '8090'
     }
 
     stages {
@@ -32,7 +33,7 @@ pipeline {
 
         stage('Clean Old Containers') {
             steps {
-                echo "🧹 Cleaning up old container: ${CONTAINER_NAME}"
+                echo "🧹 Cleaning up old containers: ${CONTAINER_NAME}"
                 sh """
                     docker stop ${CONTAINER_NAME} || true
                     docker rm ${CONTAINER_NAME} || true
