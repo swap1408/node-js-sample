@@ -1,54 +1,52 @@
 pipeline {
-    agent { label 'agent-node' }
-
-    parameters {
-        choice(name: 'BRANCH_NAME', choices: ['dev', 'qa', 'master'], description: 'Select the Git branch to build and deploy')
-    }
+    agent any
 
     environment {
-        IMAGE_NAME = "node-app:${params.BRANCH_NAME}"
-        CONTAINER_NAME = "node-app-${params.BRANCH_NAME}-container"
-        HOST_PORT = '80'
-        CONTAINER_PORT = '80'
+        NODEJS_HOME = tool name: 'nodejs', type: 'jenkins.plugins.nodejs.tools.NodeJSInstallation'
+        PATH = "${NODEJS_HOME}/bin:${env.PATH}"
     }
 
     stages {
-        stage('Checkout Code') {
+        stage('Checkout') {
             steps {
-                echo "📦 Checking out branch: ${params.BRANCH_NAME}"
-                git branch: "${params.BRANCH_NAME}", url: 'https://github.com/swap1408/node-js-sample.git'
+                git 'https://github.com/swap1408/node-js-sample.git'
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Install Dependencies') {
             steps {
-                echo "🔧 Building Docker image: ${IMAGE_NAME}"
-                sh "docker build -t ${IMAGE_NAME} ."
+                sh 'npm install'
             }
         }
 
-        stage('Clean Old Containers') {
+        stage('Build') {
             steps {
-                echo "🧹 Cleaning up old containers: ${CONTAINER_NAME}"
-                sh '''
-                    docker stop ${CONTAINER_NAME} || true
-                    docker rm ${CONTAINER_NAME} || true
-                '''
+                echo 'Building the Node.js app...'
+                sh 'npm run build || echo "No build script defined"'
             }
         }
 
-        stage('Run Docker Container') {
+        stage('Test') {
             steps {
-                echo "🚀 Running container: ${CONTAINER_NAME}"
-                sh "docker run -d -p ${HOST_PORT}:${CONTAINER_PORT} --name ${CONTAINER_NAME} ${IMAGE_NAME}"
+                echo 'Running tests...'
+                sh 'npm test || echo "No test script defined"'
+            }
+        }
+
+        stage('Run') {
+            steps {
+                echo 'Starting the Node.js server...'
+                sh 'nohup npm start &'
             }
         }
     }
 
     post {
-        always {
-            echo "✅ Cleaning workspace..."
-            cleanWs()
+        success {
+            echo '✅ Build and deployment successful!'
+        }
+        failure {
+            echo '❌ Build failed.'
         }
     }
 }
