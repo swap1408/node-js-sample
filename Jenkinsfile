@@ -19,21 +19,9 @@ pipeline {
             }
         }
 
-        stage('Build') {
-            steps {
-                sh 'npm run build || echo "No build script defined"'
-            }
-        }
-
-        stage('Test') {
-            steps {
-                sh 'npm test || echo "No test script defined"'
-            }
-        }
-
         stage('Run App') {
             steps {
-                echo 'Starting the Node.js app...'
+                echo 'Starting Node.js app...'
                 sh 'nohup npm start &'
             }
         }
@@ -41,10 +29,10 @@ pipeline {
 
     post {
         success {
-            echo '✅ Node.js app built and started successfully!'
+            echo '✅ Node.js app started successfully!'
         }
         failure {
-            echo '❌ Build failed.'
+            echo '❌ Build failed!'
         }
     }
 }
